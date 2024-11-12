@@ -239,34 +239,31 @@ function cubeCut(cubePosition, cubeSize, cubeRotation, planeOrigin, planeNormal)
     p, n = ri:rotate(p), ri:rotate(n)
     local a, b, c = n:unpack()
     local d = n:dot(p)
-    local points, vertices, face
+    local points = {}
     if a ~= 0 or b ~= 0 then -- F-B: UL, UR, DR, DL => 4, 2, 8, 6
         local ulz = (d + a/2 + b/2) / c
         local urz = (d - a/2 + b/2) / c
         local drz = (d - a/2 - b/2) / c
         local dlz = (d + a/2 - b/2) / c
-        points = points or {}
         if math.abs(ulz) <= 1/2 then points[4] = vec3(-1/2, -1/2, ulz) end
         if math.abs(urz) <= 1/2 then points[2] = vec3( 1/2, -1/2, urz) end
         if math.abs(drz) <= 1/2 then points[8] = vec3( 1/2,  1/2, drz) end
         if math.abs(dlz) <= 1/2 then points[6] = vec3(-1/2,  1/2, dlz) end
     else
         if p.z == -1/2 then
-            vertices = {
-                vec3(-1/2, -1/2, -1/2),
-                vec3( 1/2, -1/2, -1/2),
-                vec3( 1/2,  1/2, -1/2),
-                vec3(-1/2,  1/2, -1/2)
+            return {
+                vec3(-cubeSize/2, -cubeSize/2, -cubeSize/2),
+                vec3( cubeSize/2, -cubeSize/2, -cubeSize/2),
+                vec3( cubeSize/2,  cubeSize/2, -cubeSize/2),
+                vec3(-cubeSize/2,  cubeSize/2, -cubeSize/2)
             }
-            face = {1, 2, 3, 4}
         elseif p.z == 1/2 then
-            vertices = {
-                vec3(-1/2, -1/2,  1/2),
-                vec3( 1/2, -1/2,  1/2),
-                vec3( 1/2,  1/2,  1/2),
-                vec3(-1/2,  1/2,  1/2)
+            return {
+                vec3(-cubeSize/2, -cubeSize/2,  cubeSize/2),
+                vec3( cubeSize/2, -cubeSize/2,  cubeSize/2),
+                vec3( cubeSize/2,  cubeSize/2,  cubeSize/2),
+                vec3(-cubeSize/2,  cubeSize/2,  cubeSize/2)
             }
-            face = {1, 2, 3, 4}
         end
     end
     if a ~= 0 or c ~= 0 then -- U-D: BL, BR, FR, FL => 9, 10, 11, 12
@@ -274,28 +271,25 @@ function cubeCut(cubePosition, cubeSize, cubeRotation, planeOrigin, planeNormal)
         local bry = (d - a/2 + c/2) / b
         local fry = (d - a/2 - c/2) / b
         local fly = (d + a/2 - c/2) / b
-        points = points or {}
         if math.abs(bly) <= 1/2 then points[ 9] = vec3(-1/2, bly, -1/2) end
         if math.abs(bry) <= 1/2 then points[10] = vec3( 1/2, bry, -1/2) end
         if math.abs(fry) <= 1/2 then points[11] = vec3( 1/2, fry, 1/2) end
         if math.abs(fly) <= 1/2 then points[12] = vec3(-1/2, fly, 1/2) end
     else
         if p.y == -1/2 then
-            vertices = {
-                vec3(-1/2, -1/2, -1/2),
-                vec3( 1/2, -1/2, -1/2),
-                vec3( 1/2, -1/2,  1/2),
-                vec3(-1/2, -1/2,  1/2)
+            return {
+                vec3(-cubeSize/2, -cubeSize/2, -cubeSize/2),
+                vec3( cubeSize/2, -cubeSize/2, -cubeSize/2),
+                vec3( cubeSize/2, -cubeSize/2,  cubeSize/2),
+                vec3(-cubeSize/2, -cubeSize/2,  cubeSize/2)
             }
-            face = {1, 2, 3, 4}
         elseif p.y == 1/2 then
-            vertices = {
-                vec3(-1/2,  1/2, -1/2),
-                vec3( 1/2,  1/2, -1/2),
-                vec3( 1/2,  1/2,  1/2),
-                vec3(-1/2,  1/2,  1/2)
+            return {
+                vec3(-cubeSize/2,  cubeSize/2, -cubeSize/2),
+                vec3( cubeSize/2,  cubeSize/2, -cubeSize/2),
+                vec3( cubeSize/2,  cubeSize/2,  cubeSize/2),
+                vec3(-cubeSize/2,  cubeSize/2,  cubeSize/2)
             }
-            face = {1, 2, 3, 4}
         end
     end
     if b ~= 0 or c ~= 0 then -- L-R: UB, DB, DF, UF => 1, 5, 7, 3
@@ -303,72 +297,58 @@ function cubeCut(cubePosition, cubeSize, cubeRotation, planeOrigin, planeNormal)
         local dbx = (d - b/2 + c/2) / a
         local dfx = (d - b/2 - c/2) / a
         local ufx = (d + b/2 - c/2) / a
-        points = points or {}
         if math.abs(ubx) <= 1/2 then points[1] = vec3(ubx, -1/2, -1/2) end
         if math.abs(dbx) <= 1/2 then points[5] = vec3(dbx,  1/2, -1/2) end
         if math.abs(dfx) <= 1/2 then points[7] = vec3(dfx,  1/2,  1/2) end
         if math.abs(ufx) <= 1/2 then points[3] = vec3(ufx, -1/2,  1/2) end
     else
         if p.x == -1/2 then
-            vertices = {
-                vec3(-1/2, -1/2, -1/2),
-                vec3(-1/2,  1/2, -1/2),
-                vec3(-1/2,  1/2,  1/2),
-                vec3(-1/2, -1/2,  1/2)
+            return {
+                vec3(-cubeSize/2, -cubeSize/2, -cubeSize/2),
+                vec3(-cubeSize/2,  cubeSize/2, -cubeSize/2),
+                vec3(-cubeSize/2,  cubeSize/2,  cubeSize/2),
+                vec3(-cubeSize/2, -cubeSize/2,  cubeSize/2)
             }
-            face = {1, 2, 3, 4}
         elseif p.x == 1/2 then
             return {
-                vertices = {
-                    vec3( 1/2, -1/2, -1/2),
-                    vec3( 1/2,  1/2, -1/2),
-                    vec3( 1/2,  1/2,  1/2),
-                    vec3( 1/2, -1/2,  1/2)
-                },
-                edges = {
-                    {1, 2},
-                    {2, 3},
-                    {3, 4},
-                    {4, 1}
-                },
-                edgesInFace
+                vec3( cubeSize/2, -cubeSize/2, -cubeSize/2),
+                vec3( cubeSize/2,  cubeSize/2, -cubeSize/2),
+                vec3( cubeSize/2,  cubeSize/2,  cubeSize/2),
+                vec3( cubeSize/2, -cubeSize/2,  cubeSize/2)
             }
         end
     end
-    if not vertices then
-        for i = 1, 12 do 
-            if points[i] then
-                table.insert(vertices, r:rotate(points[i]) * cubeSize + cubePosition)
-            end
+    local vertices = {}
+    for i = 1, 12 do 
+        if points[i] then
+            table.insert(vertices, r:rotate(points[i]) * cubeSize + cubePosition)
         end
-        local center = vec3.zero()
-        for i, vertex in ipairs(vertices) do
-            center = center + vertex
-        end
-        center = center / #vertices
-        angles = {}
-        local q = quat.between(vec3.up(), planeNormal)
-        for i, vertex in ipairs(vertices) do
-            angles[vertex] = vec2.angle(q:rotate(vertex))
-        end
-        table.sort(vertices, function(a, b) return angles[a] < angles[b] end)
     end
-    local edges, edgesInFace
-    if points then
-
+    local center = vec3.zero()
+    for i, vertex in ipairs(vertices) do
+        center = center + vertex
     end
-    return {
-        vertices = vertices
-    }
+    center = center / #vertices
+    angles = {}
+    local q = quat.between(vec3.forward(), planeNormal)
+    for i, vertex in ipairs(vertices) do
+        angles[vertex] = vec2.angle(q:rotate(vertex))
+    end
+    table.sort(vertices, function(a, b) return angles[a] < angles[b] end)
+    return vertices
 end
 
 -- callbacks
 
 function love.load(args)
-    size = tonumber(args[1]) or 1
-    a = vec3.fromString(args[2]) or vec3(-1/2, -1/2, -1/2)
-    b = vec3.fromString(args[3]) or vec3( 1/2, -1/2,  1/2)
-    c = vec3.fromString(args[4]) or vec3( 1/2,  1/2, -1/2)
+    size = tonumber(args[1] or 1)
+    a, b, c = vec3(-size/2, -size/2, -size/2), vec3( size/2, -size/2,  size/2), vec3( size/2,  size/2, -size/2)
+    if #args >= 10 then
+        a = vec3(tonumber(args[2]), tonumber(args[3]), tonumber(args[ 4]))
+        b = vec3(tonumber(args[5]), tonumber(args[6]), tonumber(args[ 7]))
+        c = vec3(tonumber(args[8]), tonumber(args[9]), tonumber(args[10]))
+    end
+    --error(("%s ;; %s ;; %s"):format(tostring(a), tostring(b), tostring(c)))
     planePoint = a
     planeNormal = (a - b):cross(a - c)
     cutVertices = cubeCut(vec3(0, 0, 0), size, vec3.zero(), planePoint, planeNormal)
