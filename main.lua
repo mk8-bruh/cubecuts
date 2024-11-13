@@ -3,6 +3,12 @@ vec2 = mathplus.vec2
 vec3 = mathplus.vec3
 quat = mathplus.quat
 
+function math.sign(x)
+    if type(x) == "number" then
+        return (x < 0 and -1) or (x > 0 and 1) or 0
+    end
+end
+
 function table.shallowcopy(t)
     local r = {}
     for k, v in pairs(t) do
@@ -104,7 +110,7 @@ end
 -- 6: R
 --
 
-local cubeMeshMap = {
+local blockMeshMap = {
     edges = {
         {1, 2},
         {2, 3},
@@ -160,24 +166,31 @@ local cubeMeshMap = {
         {3, 6},
         {4, 6},
         {4, 5}
+    },
+    edgesInFace = {
+        {1, 2,  3,  4},
+        {5, 6,  7,  8},
+        {1, 5,  9, 10},
+        {3, 7, 11, 12},
+        {4, 8,  9, 12},
+        {2, 6, 10, 11}
     }
 }
-local cubeMeshMt = {
-    __index = cubeMeshMap
-}
 
-function cubeMesh(size)
+function blockMesh(size)
+    if type(size) == "number" then size = vec3(size, size, size) end
+    size = vec3.is(size) and size or vec3(1, 1, 1)
     local halfSize = size/2
 
     local vertices = {
-        vec3(-halfSize, -halfSize, -halfSize), -- UBL
-        vec3( halfSize, -halfSize, -halfSize), -- UBR
-        vec3( halfSize, -halfSize,  halfSize), -- UFR
-        vec3(-halfSize, -halfSize,  halfSize), -- UFL
-        vec3(-halfSize,  halfSize, -halfSize), -- DBL
-        vec3( halfSize,  halfSize, -halfSize), -- DBR
-        vec3( halfSize,  halfSize,  halfSize), -- DFR
-        vec3(-halfSize,  halfSize,  halfSize)  -- DFL
+        vec3(-halfSize.x, -halfSize.y, -halfSize.z), -- UBL
+        vec3( halfSize.x, -halfSize.y, -halfSize.z), -- UBR
+        vec3( halfSize.x, -halfSize.y,  halfSize.z), -- UFR
+        vec3(-halfSize.x, -halfSize.y,  halfSize.z), -- UFL
+        vec3(-halfSize.x,  halfSize.y, -halfSize.z), -- DBL
+        vec3( halfSize.x,  halfSize.y, -halfSize.z), -- DBR
+        vec3( halfSize.x,  halfSize.y,  halfSize.z), -- DFR
+        vec3(-halfSize.x,  halfSize.y,  halfSize.z)  -- DFL
     }
 
     local normals = {
@@ -192,7 +205,61 @@ function cubeMesh(size)
     return setmetatable({
         vertices = vertices,
         normals = normals
-    }, cubeMeshMt)
+    }, {__index = blockMeshMap})
+end
+
+function polyMesh(vertices, faces, normals, flipNormals)
+    vertices = type(vertices) == "table" and vertices or {}
+    faces = type(faces) == "table" and faces or {}
+    normals = type(normals) == "table" and normals or {}
+    local nv, nf = 0, 0
+    while vec3.is(vertices[nv + 1]) do nv = nv + 1 end
+    while type(faces[nf + 1]) == "table" do
+        for i = 1, 3 do
+            if not vertices[faces[nf + 1][i]] then
+                break
+            end
+        end
+        nf = nf + 1
+    end
+    local _v, _f, _n = vertices, faces, normals
+    vertices, faces, normals = {}, {}, {}
+    for i = 1, nv do vertices[i] = _v[i] end
+    for i = 1, nf do
+        faces[i] = _f[i]
+        normals[i] = vec3.is(_n[i]) and _n[i] or (flipNormals and -1 or 1) * (faces[i][1] - faces[i][2]):cross(faces[i][1] - faces[i][3]).norm
+    end
+    local edgeLookup, edges, edgesWithVertex, facesWithVertex, facesWithEdge, edgesInFace = {}, {}, {}, {}, {}, {}
+    for i = 1, nv do edgesWithVertex[i], facesWithVertex[i] = {}, {} end
+    for i, face in ipairs(faces) do
+        edgesInFace[i] = {}
+        for j = 1, #face - 1 do
+            if not edgeLookup[face[j]][face[j + 1]] then
+                table.insert(edges, {face[j], face[j + 1]})
+                edgeLookup[face[j]] = edgeLookup[face[j]] or {}
+                edgeLookup[face[j]][face[j + 1]] = #edges
+                table.insert(edgesWithVertex[j], #edges)
+                edgeLookup[face[j + 1]] = edgeLookup[face[j + 1]] or {}
+                edgeLookup[face[j + 1]][face[j]] = #edges
+                table.insert(edgesWithVertex[j + 1], #edges)
+                facesWithEdge[#edges] = {}
+            end
+            table.insert(facesWithVertex[face[j]], i)
+            table.insert(facesWithVertex[face[j + 1]], i)
+            table.insert(facesWithEdge[edgeLookup[face[j]][face[j + 1]]], i)
+            table.insert(edgesInFace[i], edgeLookup[face[j]][face[j + 1]])
+        end
+    end
+    return {
+        vertices = vertices,
+        edges = edges,
+        faces = faces,
+        normals = normals,
+        edgesWithVertex = edgesWithVertex,
+        facesWithVertex = facesWithVertex,
+        facesWithEdge = facesWithEdge,
+        edgesInFace = edgesInFace
+    }
 end
 
 function getMeshData(mesh, position, rotation, scale)
@@ -218,7 +285,7 @@ function getMeshData(mesh, position, rotation, scale)
     end
 
     local verticesVisible = {}
-    for i, faces in ipairs(cubeMeshMap.facesWithVertex) do
+    for i, faces in ipairs(mesh.facesWithVertex) do
         verticesVisible[i] = false
         for j, face in ipairs(faces) do
             if facesVisible[face] then
@@ -228,7 +295,7 @@ function getMeshData(mesh, position, rotation, scale)
     end
 
     local edgesVisible = {}
-    for i, edge in ipairs(cubeMeshMap.edges) do
+    for i, edge in ipairs(mesh.edges) do
         edgesVisible[i] = verticesVisible[edge[1]] and verticesVisible[edge[2]]
     end
 
@@ -352,22 +419,30 @@ end
 
 function meshCut(mesh, planeOrigin, planeNormal)
     if planeNormal.len == 0 then return {} end
-    mesh = table.shallowcopy(mesh)
     local q = quat.between(planeNormal, vec3.forward())
+    local vertices = {}
     for i, vertex in ipairs(mesh.vertices) do
-        mesh.vertices[i] = q:rotate(vertex - planeOrigin)
+        vertices[i] = q:rotate(vertex - planeOrigin)
     end
+    local normals = {}
     for i, normal in ipairs(mesh.normals) do
-        mesh.normals[i] = q:rotate(normal)
+        normals[i] = q:rotate(normal)
     end
-    -- TODO HERE
+    local intersects, intersectsByEdge = {}, {}
+    for i, edge in ipairs(mesh.edges) do
+        if math.sign(vertices[edge[1]].z) ~= math.sign(vertices[edge[2]].z) then
+
+        elseif vertices[edge[1]].z == 0 and vertices[edge[2]].z == 0 then
+
+        end
+    end
 end
 
 -- callbacks
 
 function love.load(args)
     size = tonumber(args[1] or 1)
-    mesh = cubeMesh(size)
+    mesh = blockMesh(size)
     a, b, c = vec3(-size/2, -size/2, -size/2), vec3( size/2, -size/2,  size/2), vec3( size/2,  size/2, -size/2)
     if #args >= 10 then
         a = vec3(tonumber(args[2]), tonumber(args[3]), tonumber(args[ 4]))
