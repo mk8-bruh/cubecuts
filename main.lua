@@ -13,10 +13,6 @@ end
 
 -- math
 
-function transformPoint(point, translate, rotate, scale)
-    return quat.fromEuler(rotate):rotate(point * scale) + translate
-end
-
 function projectOnPlane(point, origin, normal)
     return point - (point - origin):project(normal)
 end
