@@ -8,6 +8,9 @@ function table.shallowcopy(t)
     for k, v in pairs(t) do
         r[k] = v
     end
+    if type(getmetatable(t)) == "table" then
+        setmetatable(r, getmetatable(t))
+    end
     return r
 end
 
@@ -163,10 +166,8 @@ local cubeMeshMt = {
     __index = cubeMeshMap
 }
 
-function cubeMeshData(position, size, rotation)
+function cubeMesh(size)
     local halfSize = size/2
-    local rot = (vec3.is(rotation) and quat.fromEuler(rotation)) or (quat.is(rotation) and rotation) or quat.identity()
-    local forward = vec3.forward()
 
     local vertices = {
         vec3(-halfSize, -halfSize, -halfSize), -- UBL
@@ -188,12 +189,27 @@ function cubeMeshData(position, size, rotation)
         vec3( 1,  0,  0)  -- R
     }
 
-    for i, vertex in ipairs(vertices) do
-        vertices[i] = rot:rotate(vertex) + position
+    return setmetatable({
+        vertices = vertices,
+        normals = normals
+    }, cubeMeshMt)
+end
+
+function getMeshData(mesh, position, rotation, scale)
+    if vec3.is(rotation) then rotation = quat.fromEuler(rotation) end
+    position = vec3.is(position) and position or vec3.zero()
+    scale = (vec3.is(scale) or type(scale) == "number") and scale or 1
+    rotation = quat.is(rotation) and rotation or quat.identity()
+    local forward = vec3.forward()
+
+    local vertices = {}
+    for i, vertex in ipairs(mesh.vertices) do
+        vertices[i] = rotation:rotate(vertex * scale) + position
     end
 
-    for i, normal in ipairs(normals) do
-        normals[i] = rot:rotate(normal)
+    local normals = {}
+    for i, normal in ipairs(mesh.normals) do
+        normals[i] = rotation:rotate(normal)
     end
     
     local facesVisible = {}
@@ -222,11 +238,7 @@ function cubeMeshData(position, size, rotation)
         verticesVisible = verticesVisible,
         edgesVisible = edgesVisible,
         facesVisible = facesVisible
-    }, cubeMeshMt)
-end
-
-function getMeshData(mesh, position, rotation)
-    
+    }, {__index = mesh})
 end
 
 function cubeCut(cubePosition, cubeSize, cubeRotation, planeOrigin, planeNormal)
@@ -338,24 +350,39 @@ function cubeCut(cubePosition, cubeSize, cubeRotation, planeOrigin, planeNormal)
     return vertices
 end
 
+function meshCut(mesh, planeOrigin, planeNormal)
+    if planeNormal.len == 0 then return {} end
+    mesh = table.shallowcopy(mesh)
+    local q = quat.between(planeNormal, vec3.forward())
+    for i, vertex in ipairs(mesh.vertices) do
+        mesh.vertices[i] = q:rotate(vertex - planeOrigin)
+    end
+    for i, normal in ipairs(mesh.normals) do
+        mesh.normals[i] = q:rotate(normal)
+    end
+    -- TODO HERE
+end
+
 -- callbacks
 
 function love.load(args)
     size = tonumber(args[1] or 1)
-    mesh = cubeMeshData(vec3.zero(), size, vec3.zero())
+    mesh = cubeMesh(size)
     a, b, c = vec3(-size/2, -size/2, -size/2), vec3( size/2, -size/2,  size/2), vec3( size/2,  size/2, -size/2)
     if #args >= 10 then
         a = vec3(tonumber(args[2]), tonumber(args[3]), tonumber(args[ 4]))
         b = vec3(tonumber(args[5]), tonumber(args[6]), tonumber(args[ 7]))
         c = vec3(tonumber(args[8]), tonumber(args[9]), tonumber(args[10]))
     end
-    --error(("%s ;; %s ;; %s"):format(tostring(a), tostring(b), tostring(c)))
     planePoint = a
     planeNormal = (a - b):cross(a - c)
     cut = {
         points = {a, b, c},
-        vertices = cubeCut(vec3.zero(), size, vec3.zero(), planePoint, planeNormal)
+        vertices = cubeCut(vec3.zero(), size, vec3.zero(), planePoint, planeNormal),
+        faces = {{}, {}},
+        normals = {planeNormal, -planeNormal}
     }
+    for i = 1, #cut.vertices do cut.faces[1][i] = i cut.faces[2][i] = #cut.vertices - i + 1 end
 
     sqit = require "sqit"
 
@@ -379,54 +406,60 @@ function love.load(args)
             love.graphics.translate((self.screenSize/2):unpack())
             local scale = math.min(self.screenSize:unpack())/2 / self.size
             love.graphics.scale(scale)
-
-            -- draw the cube
             love.graphics.setLineWidth(1 / scale)
+            local q = quat.fromEuler(self.rotation)
+
+            local meshData = getMeshData(mesh, vec3.zero(), self.rotation, 1)
+            local cutData = getMeshData(cut, vec3.zero(), self.rotation, 1)
+
             --- draw invisible parts
             love.graphics.setColor(1, 1, 1)
             for i, edge in ipairs(mesh.edges) do
-                if not mesh.edgesVisible[i] then
-                    local a, b = mesh.vertices[edge[1]], mesh.vertices[edge[2]]
+                if not meshData.edgesVisible[i] then
+                    local a, b = meshData.vertices[edge[1]], meshData.vertices[edge[2]]
                     dashedLine(a.x, a.y, b.x, b.y, 10 / scale)
                 end
             end
             love.graphics.setColor(0, 1, 0)
-            for i, vertex in ipairs(data.vertices) do
-                if not data.verticesVisible[i] then
+            for i, vertex in ipairs(meshData.vertices) do
+                if not meshData.verticesVisible[i] then
                     love.graphics.circle("line", vertex.x, vertex.y, 5 / scale)
                 end
             end
             --- draw the cut
             love.graphics.setColor(1, 0, 0, 0.5)
-            if #self.cutVertices >= 3 then
-                love.graphics.polygon("fill", vec2.convertArray(self.cutVertices))
+            if #cutData.vertices >= 3 then
+                love.graphics.polygon("fill", vec2.convertArray(cutData.vertices))
             end
             love.graphics.setColor(1, 0, 0)
-            for i, vertex in ipairs(self.cutVertices) do
+            for i, vertex in ipairs(cutData.vertices) do
                 love.graphics.circle("line", vertex.x, vertex.y, 5 / scale)
-            end
-            for i, point in ipairs(self.cutPoints) do
-                love.graphics.circle("fill", point.x, point.y, 5 / scale)
             end
             --- draw visible parts
             love.graphics.setColor(1, 1, 1)
-            for i, edge in ipairs(data.edges) do
-                if data.edgesVisible[i] then
-                    local a, b = data.vertices[edge[1]], data.vertices[edge[2]]
+            for i, edge in ipairs(mesh.edges) do
+                if meshData.edgesVisible[i] then
+                    local a, b = meshData.vertices[edge[1]], meshData.vertices[edge[2]]
                     love.graphics.line(a.x, a.y, b.x, b.y)
                 end
             end
             love.graphics.setColor(0, 1, 0)
-            for i, vertex in ipairs(data.vertices) do
-                if data.verticesVisible[i] then
+            for i, vertex in ipairs(meshData.vertices) do
+                if meshData.verticesVisible[i] then
                     love.graphics.circle("fill", vertex.x, vertex.y, 5 / scale)
                 end
             end
 
+            -- draw cut reference points
+            love.graphics.setColor(1, 0.5, 0)
+            for i, point in ipairs(cut.points) do
+                local p = q:rotate(point)
+                love.graphics.circle("fill", p.x, p.y, 5 / scale)
+            end
+
             -- draw the coordinate system
-            local q = quat.fromEuler(self.rotation)
-            local s = 0.25 * self.size
-            local x, y, z = q:rotate(vec3(s, 0, 0)), q:rotate(vec3(0, s, 0)), q:rotate(vec3(0, 0, s))
+            local s = 0.25 * size
+            local x, y, z = q:rotate(vec3.right() * s), q:rotate(vec3.down() * s), q:rotate(vec3.forward() * s)
             love.graphics.setColor(1, 0, 0)
             love.graphics.line(0, 0, x.x, x.y)
             love.graphics.setColor(0, 1, 0)
