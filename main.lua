@@ -225,6 +225,10 @@ function cubeMeshData(position, size, rotation)
     }, cubeMeshMt)
 end
 
+function getMeshData(mesh, position, rotation)
+    
+end
+
 function cubeCut(cubePosition, cubeSize, cubeRotation, planeOrigin, planeNormal)
     if planeNormal.len == 0 then return {} end
     if vec3.is(cubeRotation) then cubeRotation = quat.fromEuler(cubeRotation) end
@@ -328,7 +332,7 @@ function cubeCut(cubePosition, cubeSize, cubeRotation, planeOrigin, planeNormal)
     angles = {}
     local q = quat.between(vec3.forward(), planeNormal)
     for i, vertex in ipairs(vertices) do
-        angles[vertex] = vec2.angle(q:rotate(vertex))
+        angles[vertex] = vec2.angle(vec2(q:rotate(vertex)))
     end
     table.sort(vertices, function(a, b) return angles[a] < angles[b] end)
     return vertices
@@ -338,6 +342,7 @@ end
 
 function love.load(args)
     size = tonumber(args[1] or 1)
+    mesh = cubeMeshData(vec3.zero(), size, vec3.zero())
     a, b, c = vec3(-size/2, -size/2, -size/2), vec3( size/2, -size/2,  size/2), vec3( size/2,  size/2, -size/2)
     if #args >= 10 then
         a = vec3(tonumber(args[2]), tonumber(args[3]), tonumber(args[ 4]))
@@ -347,20 +352,10 @@ function love.load(args)
     --error(("%s ;; %s ;; %s"):format(tostring(a), tostring(b), tostring(c)))
     planePoint = a
     planeNormal = (a - b):cross(a - c)
-    cutVertices = cubeCut(vec3(0, 0, 0), size, vec3.zero(), planePoint, planeNormal)
-    if cutData then
-        cutCenter = vec3.zero()
-        for i, vertex in ipairs(cutVertices) do
-            cutCenter = cutCenter + vertex
-        end
-        cutCenter = cutCenter / #cutVertices
-        angles = {}
-        local q = quat.between(vec3.up(), planeNormal)
-        for i, vertex in ipairs(cutVertices) do
-            angles[vertex] = vec2.angle(q:rotate(vertex))
-        end
-        table.sort(cutVertices, function(a, b) return angles[a] < angles[b] end)
-    end
+    cut = {
+        points = {a, b, c},
+        vertices = cubeCut(vec3.zero(), size, vec3.zero(), planePoint, planeNormal)
+    }
 
     sqit = require "sqit"
 
@@ -372,22 +367,10 @@ function love.load(args)
         sensitivity = 0.01,
         rotation = vec3.zero(),
         screenSize = vec2(0, 0),
-        meshData = cubeMeshData(vec3.zero(), size, vec3.zero()),
-        cutPoints = {a, b, c},
-        cutVertices = table.shallowcopy(cutVertices),
         check = function(self, x, y) return true end,
         moved = function(self, x, y, dx, dy)
             self.rotation = self.rotation + vec3(dy * self.sensitivity, -dx * self.sensitivity, 0)
             self.rotation.x = math.max(-math.pi/2, math.min(math.pi/2, self.rotation.x))
-            
-            self.meshData = cubeMeshData(vec3.zero(), self.size, self.rotation)
-            local q = quat.fromEuler(self.rotation)
-            for i, point in ipairs{a, b, c} do
-                self.cutPoints[i] = q:rotate(point)
-            end
-            for i, vertex in ipairs(cutVertices) do
-                self.cutVertices[i] = q:rotate(vertex)
-            end
         end,
         resize = function(self, w, h)
             self.screenSize = vec2(w, h)
@@ -398,13 +381,12 @@ function love.load(args)
             love.graphics.scale(scale)
 
             -- draw the cube
-            local data = self.meshData
             love.graphics.setLineWidth(1 / scale)
             --- draw invisible parts
             love.graphics.setColor(1, 1, 1)
-            for i, edge in ipairs(data.edges) do
-                if not data.edgesVisible[i] then
-                    local a, b = data.vertices[edge[1]], data.vertices[edge[2]]
+            for i, edge in ipairs(mesh.edges) do
+                if not mesh.edgesVisible[i] then
+                    local a, b = mesh.vertices[edge[1]], mesh.vertices[edge[2]]
                     dashedLine(a.x, a.y, b.x, b.y, 10 / scale)
                 end
             end
@@ -416,7 +398,9 @@ function love.load(args)
             end
             --- draw the cut
             love.graphics.setColor(1, 0, 0, 0.5)
-            love.graphics.polygon("fill", vec2.convertArray(self.cutVertices))
+            if #self.cutVertices >= 3 then
+                love.graphics.polygon("fill", vec2.convertArray(self.cutVertices))
+            end
             love.graphics.setColor(1, 0, 0)
             for i, vertex in ipairs(self.cutVertices) do
                 love.graphics.circle("line", vertex.x, vertex.y, 5 / scale)
