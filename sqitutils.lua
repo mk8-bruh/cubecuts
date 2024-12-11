@@ -105,7 +105,6 @@ local inlineTextbox = {
     end,
     activated = function(t)
         love.keyboard.setKeyRepeat(true)
-        error(love.system.getOS())
         if love.system.getOS() == "Android" or love.system.getOS() == "iOS" then
             love.keyboard.setTextInput(true, self.x - self.w/2, self.y - self.h/2, self.w, self.h)
         end

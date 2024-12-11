@@ -265,7 +265,11 @@ function love.load(args)
         end,
         draw = function(self)
             local maxSize = math.max(size:unpack())
-            love.graphics.translate((self.screenSize/2):unpack())
+            if _MOBILE then
+                love.graphics.translate(self.screenSize.x/2, self.screenSize.y - self.screenSize.x/2)
+            else
+                love.graphics.translate((self.screenSize/2):unpack())
+            end
             local scale = math.min(self.screenSize:unpack())/2 / maxSize * math.exp(self.zoom)
             love.graphics.scale(scale)
             love.graphics.setLineWidth(1 / scale)
