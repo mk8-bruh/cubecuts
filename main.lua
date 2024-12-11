@@ -266,7 +266,7 @@ function love.load(args)
         draw = function(self)
             local maxSize = math.max(size:unpack())
             if _MOBILE then
-                love.graphics.translate(self.screenSize.x/2, self.screenSize.y - self.screenSize.x/2)
+                love.graphics.translate(self.screenSize.x/2, self.screenSize.y/2 + (mobileTopMargin + margin + shapeUI.h + planeUI.h)/2)
             else
                 love.graphics.translate((self.screenSize/2):unpack())
             end
