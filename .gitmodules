@@ -1,3 +1,6 @@
 [submodule "mathplus"]
 	path = mathplus
 	url = https://github.com/mk8-bruh/mathplus.lua
+[submodule "sqit"]
+	path = sqit
+	url = https://github.com/mk8-bruh/sqit.lua
