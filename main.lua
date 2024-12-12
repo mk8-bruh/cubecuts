@@ -37,7 +37,7 @@ function projectOnPlane(point, origin, normal)
     return point - (point - origin):project(normal)
 end
 
-function raycastCube(origin, direction, cubeCenter, cubeSize)
+function raycastCube(origin, direction, cubeCenter, cubeSize, limit)
     local halfSize = cubeSize/2
     local minBound, maxBound = cubeCenter - vec3.new(halfSize, halfSize, halfSize), cubeCenter + vec3.new(halfSize, halfSize, halfSize)
     local tMin, tMax = -math.huge, math.huge
@@ -58,13 +58,13 @@ function raycastCube(origin, direction, cubeCenter, cubeSize)
         slab(origin.z, direction.z, minBound.z, maxBound.z)
     then
         if tMin >= 0 then
-            --if tMin <= 1 then
+            if not limit or tMin <= 1 then
                 return origin + direction * tMin
-            --end
+            end
         elseif tMax >= 0 then
-            --if tMax <= 1 then
+            if not limit or tMax <= 1 then
                 return origin + direction * tMax
-            --end
+            end
         end
     end
 end
@@ -99,6 +99,19 @@ function love.load(args)
     }
 
     size = vec3(1, 1, 1)
+    shapes = {
+        blockMesh,
+        function(size)
+            return spireMesh(
+                vec3(0, -size.y/2, 0), size.y/2,
+                vec3(-size.x/2, 0, -size.z/2),
+                vec3( size.x/2, 0, -size.z/2),
+                vec3( size.x/2, 0,  size.z/2),
+                vec3(-size.x/2, 0,  size.z/2)
+            )
+        end
+    }
+    shape = 1
     mesh = blockMesh(size)
 
     plane = {
@@ -111,13 +124,7 @@ function love.load(args)
         {1, 0, 1},
         {1, 1, 0}
     }
-
-    function recalculateCut()
-        planePoint = plane[1]
-        planeNormal = (plane[1] - plane[2]):cross(plane[1] - plane[3])
-        cut = meshCut(mesh, planePoint, planeNormal)
-    end
-    recalculateCut()
+    cut = meshCut(mesh, plane[1], vec3.cross(plane[1] - plane[2], plane[1] - plane[3]))
 
     sqit = require "sqit"
     sqitutils = require "sqitutils"
@@ -131,7 +138,7 @@ function love.load(args)
     shapeUI = sqit.new{
         fields = {},
         z = 0,
-        w = 100, h = 100,
+        w = 200, h = 100,
         cornerRadius = 5,
         resize = function(self, w, h)
             if _MOBILE then
@@ -141,7 +148,7 @@ function love.load(args)
                 self.x = margin
                 self.y = h - self.h - margin
             end
-            for i, f in ipairs(self.fields) do f.x = self.x + self.w/2 end
+            for i, f in ipairs(self.fields) do f.x = self.x + self.w/4 end
             sqitutils.stretchOut(self.fields, "y", self.y, self.y + self.h, true)
         end,
         draw = function(self)
@@ -165,8 +172,8 @@ function love.load(args)
                 local v = parseExpression(self.text)
                 if type(v) == "number" then
                     size[d] = v
-                    mesh = blockMesh(size)
-                    recalculateCut()
+                    mesh = shapes[shape](size)
+                    cut = meshCut(mesh, plane[1], vec3.cross(plane[1] - plane[2], plane[1] - plane[3]))
                 else
                     self.text = tostring(size[d])
                 end
@@ -175,6 +182,65 @@ function love.load(args)
         table.insert(shapeUI.fields, f)
         scene.add(f)
     end
+    scene.add(sqitutils.newTextButton({
+        style = style.button,
+        scene = scene,
+        icons = {
+            {
+                {0.15, 0.35, 0.35, 0.15},
+                {0.35, 0.15, 0.85, 0.15},
+                {0.85, 0.15, 0.65, 0.35},
+                {0.65, 0.35, 0.15, 0.35},
+
+                {0.15, 0.35, 0.15, 0.85},
+                {0.35, 0.15, 0.35, 0.65},
+                {0.85, 0.15, 0.85, 0.65},
+                {0.65, 0.35, 0.65, 0.85},
+
+                {0.15, 0.85, 0.35, 0.65},
+                {0.35, 0.65, 0.85, 0.65},
+                {0.85, 0.65, 0.65, 0.85},
+                {0.65, 0.85, 0.15, 0.85}
+            },
+            {
+                {0.15, 0.85, 0.50, 0.25},
+                {0.35, 0.65, 0.50, 0.25},
+                {0.85, 0.65, 0.50, 0.25},
+                {0.65, 0.85, 0.50, 0.25},
+                
+                {0.15, 0.85, 0.35, 0.65},
+                {0.35, 0.65, 0.85, 0.65},
+                {0.85, 0.65, 0.65, 0.85},
+                {0.65, 0.85, 0.15, 0.85}
+            }
+        },
+        z = 1,
+        w = 80, h = 80,
+        action = function(self)
+            shape = (shape % #shapes) + 1
+            mesh = shapes[shape](size)
+            cut = meshCut(mesh, plane[1], vec3.cross(plane[1] - plane[2], plane[1] - plane[3]))
+        end,
+        draw = function(self)
+            local t = self
+            love.graphics.setColor((t.scene.isPressed(t) and t.style.color.pressed) or (t.scene.isHovered(t) and t.style.color.hovered) or (t.scene.isActive(t) and t.style.color.active) or t.style.color.default)
+            love.graphics.rectangle("fill", t.x - t.w/2, t.y - t.h/2, t.w, t.h, t.style.shape.cornerRadius)
+            love.graphics.setColor((t.scene.isPressed(t) and t.style.outline.color.pressed) or (t.scene.isHovered(t) and t.style.outline.color.hovered) or (t.scene.isActive(t) and t.style.outline.color.active) or t.style.outline.color.default)
+            love.graphics.setLineWidth(t.style.outline.width)
+            love.graphics.rectangle("line", t.x - t.w/2, t.y - t.h/2, t.w, t.h, t.style.shape.cornerRadius)
+            love.graphics.setColor((t.scene.isPressed(t) and t.style.text.color.pressed) or (t.scene.isHovered(t) and t.style.text.color.hovered) or (t.scene.isActive(t) and t.style.text.color.active) or t.style.text.color.default)
+            love.graphics.setLineWidth(t.style.outline.width)
+            for i, line in ipairs(self.icons[shape]) do
+                local x1, y1, x2, y2 = unpack(line)
+                love.graphics.line(self.x + (x1 - 0.5) * self.w, self.y + (y1 - 0.5) * self.h, self.x + (x2 - 0.5) * self.w, self.y + (y2 - 0.5) * self.h)
+            end
+            love.graphics.origin()
+        end,
+        resize = function(self, w, h)
+            sqitutils.stretchOut({self}, "x", shapeUI.x + shapeUI.w/2, shapeUI.x + shapeUI.w, true)
+            sqitutils.stretchOut({self}, "y", shapeUI.y, shapeUI.y + shapeUI.h, true)
+        end
+    }))
     scene.add(shapeUI)
 
     planeUI = sqit.new{
@@ -230,7 +296,7 @@ function love.load(args)
                     local v = parseExpression(self.text)
                     if type(v) == "number" then
                         plane[i][d] = v
-                        recalculateCut()
+                        cut = meshCut(mesh, plane[1], vec3.cross(plane[1] - plane[2], plane[1] - plane[3]))
                     else
                         self.text = tostring(plane[i][d])
                     end

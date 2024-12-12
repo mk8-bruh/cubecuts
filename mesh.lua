@@ -168,27 +168,26 @@ function polyMesh(vertices, faces, normals, flipNormals)
     for i = 1, nv do vertices[i] = _v[i] end
     for i = 1, nf do
         faces[i] = _f[i]
-        normals[i] = vec3.is(_n[i]) and _n[i] or (flipNormals and -1 or 1) * (faces[i][1] - faces[i][2]):cross(faces[i][1] - faces[i][3]).norm
+        normals[i] = vec3.is(_n[i]) and _n[i] or (flipNormals and -1 or 1) * (vertices[faces[i][1]] - vertices[faces[i][2]]):cross(vertices[faces[i][1]] - vertices[faces[i][3]]).norm
     end
     local edgeLookup, edges, edgesWithVertex, facesWithVertex, facesWithEdge, edgesInFace = {}, {}, {}, {}, {}, {}
-    for i = 1, nv do edgesWithVertex[i], facesWithVertex[i] = {}, {} end
+    for i = 1, nv do edgeLookup[i], edgesWithVertex[i], facesWithVertex[i] = {}, {}, {} end
     for i, face in ipairs(faces) do
         edgesInFace[i] = {}
-        for j = 1, #face - 1 do
-            if not edgeLookup[face[j]][face[j + 1]] then
-                table.insert(edges, {face[j], face[j + 1]})
-                edgeLookup[face[j]] = edgeLookup[face[j]] or {}
-                edgeLookup[face[j]][face[j + 1]] = #edges
-                table.insert(edgesWithVertex[j], #edges)
-                edgeLookup[face[j + 1]] = edgeLookup[face[j + 1]] or {}
-                edgeLookup[face[j + 1]][face[j]] = #edges
-                table.insert(edgesWithVertex[j + 1], #edges)
+        for j = 1, #face do
+            local a, b = j, (j % #face) + 1
+            if not edgeLookup[face[a]][face[b]] then
+                table.insert(edges, {face[a], face[b]})
+                edgeLookup[face[a]][face[b]] = #edges
+                edgeLookup[face[b]][face[a]] = #edges
+                table.insert(edgesWithVertex[face[a]], #edges)
+                table.insert(edgesWithVertex[face[b]], #edges)
                 facesWithEdge[#edges] = {}
             end
-            table.insert(facesWithVertex[face[j]], i)
-            table.insert(facesWithVertex[face[j + 1]], i)
-            table.insert(facesWithEdge[edgeLookup[face[j]][face[j + 1]]], i)
-            table.insert(edgesInFace[i], edgeLookup[face[j]][face[j + 1]])
+            table.insert(facesWithVertex[face[a]], i)
+            table.insert(facesWithVertex[face[b]], i)
+            table.insert(facesWithEdge[edgeLookup[face[a]][face[b]]], i)
+            table.insert(edgesInFace[i], edgeLookup[face[a]][face[b]])
         end
     end
     return {
@@ -201,6 +200,24 @@ function polyMesh(vertices, faces, normals, flipNormals)
         facesWithEdge = facesWithEdge,
         edgesInFace = edgesInFace
     }
+end
+
+function spireMesh(tip, baseY, ...)
+    local points = {...}
+    local n = #points
+    if n == 0 then return end
+    local angles = {}
+    for i, p in ipairs(points) do
+        p.y = baseY
+        angles[p] = vec2.angle(vec2(p.x, p.z))
+    end
+    table.sort(points, function(a, b) return angles[a] < angles[b] end)
+    table.insert(points, tip)
+    local faces = {}
+    for i = 1, n do
+        table.insert(faces, {i, (i % n) + 1, n + 1})
+    end
+    return polyMesh(points, faces)
 end
 
 function getMeshData(mesh, position, rotation, scale)
