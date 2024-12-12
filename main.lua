@@ -127,7 +127,6 @@ function love.load(args)
     cut = meshCut(mesh, plane[1], vec3.cross(plane[1] - plane[2], plane[1] - plane[3]))
 
     sqit = require "sqit"
-    sqitutils = require "sqitutils"
     style = require "style"
 
     scene = sqit.new{}
@@ -149,7 +148,7 @@ function love.load(args)
                 self.y = h - self.h - margin
             end
             for i, f in ipairs(self.fields) do f.x = self.x + self.w/4 end
-            sqitutils.stretchOut(self.fields, "y", self.y, self.y + self.h, true)
+            sqit.utils.stretchOut(self.fields, "y", self.y, self.y + self.h, true)
         end,
         draw = function(self)
             love.graphics.setColor(style.textbox.color.default)
@@ -160,7 +159,7 @@ function love.load(args)
         end
     }
     for j, d in ipairs{"x", "y", "z"} do
-        local f = sqitutils.newInlineTextbox{
+        local f = sqit.components.inlineTextbox{
             style = style.textbox,
             scene = scene,
             z = 1,
@@ -182,7 +181,7 @@ function love.load(args)
         table.insert(shapeUI.fields, f)
         scene.add(f)
     end
-    scene.add(sqitutils.newTextButton({
+    scene.add(sqit.components.textButton({
         style = style.button,
         scene = scene,
         icons = {
@@ -237,8 +236,8 @@ function love.load(args)
             love.graphics.origin()
         end,
         resize = function(self, w, h)
-            sqitutils.stretchOut({self}, "x", shapeUI.x + shapeUI.w/2, shapeUI.x + shapeUI.w, true)
-            sqitutils.stretchOut({self}, "y", shapeUI.y, shapeUI.y + shapeUI.h, true)
+            sqit.utils.stretchOut({self}, "x", shapeUI.x + shapeUI.w/2, shapeUI.x + shapeUI.w, true)
+            sqit.utils.stretchOut({self}, "y", shapeUI.y, shapeUI.y + shapeUI.h, true)
         end
     }))
     scene.add(shapeUI)
@@ -256,7 +255,7 @@ function love.load(args)
                 self.x = w - self.w - margin
                 self.y = h - self.h - margin
             end
-            sqitutils.stretchOut(self.rows, "y", self.y, self.y + self.h, true)
+            sqit.utils.stretchOut(self.rows, "y", self.y, self.y + self.h, true)
         end,
         draw = function(self)
             love.graphics.setColor(style.textbox.color.default)
@@ -272,7 +271,7 @@ function love.load(args)
             w = planeUI.w, h = 25,
             resize = function(self, w, h)
                 for i, f in ipairs(self.fields) do f.y = self.y end
-                sqitutils.stretchOut(self.fields, "x", planeUI.x, planeUI.x + planeUI.w, true)
+                sqit.utils.stretchOut(self.fields, "x", planeUI.x, planeUI.x + planeUI.w, true)
                 self.x = planeUI.x
             end,
             draw = function(self)
@@ -284,7 +283,7 @@ function love.load(args)
         table.insert(planeUI.rows, e)
         planeUI.add(e)
         for j, d in ipairs{"x", "y", "z"} do
-            local f = sqitutils.newInlineTextbox{
+            local f = sqit.components.inlineTextbox{
                 style = style.textbox,
                 scene = scene,
                 z = 1,
