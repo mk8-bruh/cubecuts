@@ -213,10 +213,12 @@ function spireMesh(tip, baseY, ...)
     end
     table.sort(points, function(a, b) return angles[a] < angles[b] end)
     table.insert(points, tip)
-    local faces = {}
+    local faces, base = {}, {}
     for i = 1, n do
         table.insert(faces, {i, (i % n) + 1, n + 1})
+        table.insert(base, 1, i)
     end
+    table.insert(faces, base)
     return polyMesh(points, faces)
 end
 
