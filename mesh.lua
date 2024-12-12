@@ -256,7 +256,12 @@ function getMeshData(mesh, position, rotation, scale)
 
     local edgesVisible = {}
     for i, edge in ipairs(mesh.edges) do
-        edgesVisible[i] = verticesVisible[edge[1]] and verticesVisible[edge[2]]
+        edgesVisible[i] = false
+        for j, f in ipairs(mesh.facesWithEdge[i]) do
+            if facesVisible[f] then
+                edgesVisible[i] = true
+            end
+        end
     end
 
     return setmetatable({
