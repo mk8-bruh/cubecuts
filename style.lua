@@ -29,9 +29,9 @@ return {
             cornerRadius = 5
         },
         color = {
-            default = {1, 1, 1},
-            active = {1, 1, 0.4},
-            hovered = {1, 1, 0.8},
+            default = {0.625, 0.625, 0.625},
+            active = {0.75, 0.75, 0.5},
+            hovered = {0.75, 0.75, 0.75},
             pressed = {0, 0, 0}
         },
         text = {
@@ -41,7 +41,7 @@ return {
                 hovered = {0, 0, 0},
                 pressed = {1, 1, 1}
             },
-            font = love.graphics.newFont(20)
+            font = love.graphics.newFont(15)
         },
         outline = {
             color = {
@@ -50,7 +50,7 @@ return {
                 hovered = {0, 0, 0},
                 pressed = {0, 0, 0}
             },
-            width = 2
+            width = 1
         }
     },
     textbox = {
