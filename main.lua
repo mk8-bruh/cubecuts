@@ -29,6 +29,7 @@ function parseExpression(e)
             return v
         end
     end
+    return e
 end
 
 -- math
