@@ -1,3 +1,8 @@
+local mathplus = require "mathplus"
+local vec2 = mathplus.vec2
+local vec3 = mathplus.vec3
+local quat = mathplus.quat
+
 function math.sign(x)
     if type(x) == "number" then
         return (x < 0 and -1) or (x > 0 and 1) or 0
